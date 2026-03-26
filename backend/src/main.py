@@ -7,6 +7,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from src.config import get_config
+from src.database.session import init_db
+from src.security.audit_log import log_audit, verify_chain
 from src.utils.logger import get_logger, setup_logging
 
 logger = get_logger(__name__)
@@ -19,8 +21,23 @@ async def lifespan(app: FastAPI):
     config.load()
     setup_logging(level=os.getenv("LOG_LEVEL", "INFO"))
     logger.info("MedGuard AI starting up...")
-    logger.info(f"Database path: {os.getenv('DATABASE_PATH', 'data/medguard.db')}")
+
+    # Initialize database
+    init_db()
+    logger.info(f"Database initialized: {os.getenv('DATABASE_PATH', 'data/medguard.db')}")
+
+    # Verify audit chain on startup
+    chain_status = verify_chain()
+    if chain_status["valid"]:
+        logger.info(f"Audit chain verified: {chain_status['total_entries']} entries, integrity OK")
+    else:
+        logger.warning(f"Audit chain integrity BROKEN: {chain_status['error']}")
+
+    log_audit(agent_name="system", action="startup")
+
     yield
+
+    log_audit(agent_name="system", action="shutdown")
     logger.info("MedGuard AI shutting down...")
 
 
