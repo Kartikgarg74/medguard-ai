@@ -1,0 +1,55 @@
+# MedGuard AI Default Configuration
+
+database:
+  path: "${DATABASE_PATH}"
+  echo: false
+
+ai:
+  provider: "groq"
+  groq:
+    api_key: "${GROQ_API_KEY}"
+    daily_limit: 14400
+    models:
+      cheap: "llama-3.1-8b-instant"
+      quality: "llama-3.3-70b-versatile"
+  routing:
+    compliance_check: "cheap"
+    medicine_classify: "cheap"
+    edge_case: "quality"
+    report_narrative: "quality"
+
+scraper:
+  headless: true
+  max_concurrent: 3
+  delay_min: 1.5
+  delay_max: 4.0
+  platforms:
+    - "1mg"
+    - "pharmeasy"
+    - "netmeds"
+    - "apollo"
+  nppa_url: "https://nppaimis.nic.in/nppaprice/pharmasahidaamweb.aspx"
+
+compliance:
+  wpi_factor: 1.0174028
+  wpi_year: "FY2025-26"
+  non_scheduled_max_increase: 0.10
+  interest_rate: 0.15
+  tolerance_pct: 0.02
+  confidence_threshold: 0.70
+
+alerts:
+  telegram:
+    bot_token: "${TELEGRAM_BOT_TOKEN}"
+    chat_id: "${TELEGRAM_CHAT_ID}"
+    enabled: true
+  severity_threshold: "high"
+
+pipeline:
+  schedule_hours: 6
+  full_scan_cron: "0 6 * * *"
+  report_cron: "0 8 * * *"
+
+logging:
+  level: "${LOG_LEVEL}"
+  directory: "data/logs"
