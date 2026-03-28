@@ -65,9 +65,7 @@ class DPCORulesEngine:
             checked_by="rule_engine",
         )
 
-    def check_batch(
-        self, records: list[dict]
-    ) -> list[tuple[dict, ComplianceResult]]:
+    def check_batch(self, records: list[dict]) -> list[tuple[dict, ComplianceResult]]:
         """
         Check a batch of records.
 

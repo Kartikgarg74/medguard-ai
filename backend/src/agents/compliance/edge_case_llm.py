@@ -14,6 +14,7 @@ from src.ai.prompts import (
     EDGE_CASE_SYSTEM,
 )
 from src.ai.router import AIRouter
+from src.security.prompt_guard import sanitize_input
 
 logger = logging.getLogger(__name__)
 
@@ -37,14 +38,14 @@ class EdgeCaseLLM:
     ) -> ComplianceResult:
         """Use LLM to analyze an ambiguous compliance case."""
         prompt = COMPLIANCE_CHECK_PROMPT.format(
-            medicine_name=medicine_name,
-            salt_composition=salt_composition,
-            formulation=formulation,
-            pack_size=pack_size,
+            medicine_name=sanitize_input(medicine_name, max_length=200),
+            salt_composition=sanitize_input(salt_composition, max_length=500),
+            formulation=sanitize_input(formulation, max_length=100),
+            pack_size=sanitize_input(pack_size, max_length=100),
             retail_price=retail_price,
             selling_price=selling_price,
             ceiling_price=ceiling_price,
-            platform=platform,
+            platform=sanitize_input(platform, max_length=50),
         )
 
         try:
@@ -79,12 +80,12 @@ class EdgeCaseLLM:
     ) -> dict:
         """Use LLM to determine if a scraped product matches a catalog entry."""
         prompt = EDGE_CASE_PROMPT.format(
-            product_name=product_name,
-            platform=platform,
+            product_name=sanitize_input(product_name, max_length=200),
+            platform=sanitize_input(platform, max_length=50),
             retail_price=retail_price,
-            pack_size=pack_size,
-            catalog_name=catalog_name,
-            catalog_salt=catalog_salt,
+            pack_size=sanitize_input(pack_size, max_length=100),
+            catalog_name=sanitize_input(catalog_name, max_length=200),
+            catalog_salt=sanitize_input(catalog_salt, max_length=500),
             match_score=match_score,
         )
 
@@ -105,20 +106,23 @@ class EdgeCaseLLM:
 
     def _parse_llm_result(self, result: dict) -> ComplianceResult:
         """Parse LLM JSON response into a ComplianceResult."""
-        verdict_str = result.get("verdict", "review_needed").lower()
+        verdict_str = str(result.get("verdict", "review_needed")).lower().strip()
         verdict_map = {
             "compliant": Verdict.COMPLIANT,
             "violation": Verdict.VIOLATION,
             "warning": Verdict.WARNING,
             "review_needed": Verdict.REVIEW_NEEDED,
         }
+        if verdict_str not in verdict_map:
+            logger.warning(f"LLM returned unexpected verdict: {verdict_str!r}")
         verdict = verdict_map.get(verdict_str, Verdict.REVIEW_NEEDED)
 
-        overcharge = float(result.get("overcharge_per_unit", 0))
-        confidence = float(result.get("confidence", 0.5))
+        # Clamp numeric values to sensible ranges
+        overcharge = max(0.0, min(float(result.get("overcharge_per_unit", 0)), 100000.0))
+        confidence = max(0.0, min(float(result.get("confidence", 0.5)), 1.0))
 
         # Calculate overcharge percentage if we have the data
-        suggested_max = float(result.get("suggested_max_price", 0))
+        suggested_max = max(0.0, min(float(result.get("suggested_max_price", 0)), 100000.0))
         if suggested_max > 0 and overcharge > 0:
             overcharge_pct = (overcharge / suggested_max) * 100
         else:
@@ -135,7 +139,7 @@ class EdgeCaseLLM:
             overcharge_amount=round(overcharge, 2),
             overcharge_pct=round(overcharge_pct, 2),
             dpco_rule=dpco_rule,
-            reasoning=result.get("reasoning", "")[:500],
+            reasoning=sanitize_input(str(result.get("reasoning", "")), max_length=500),
             confidence=confidence,
             checked_by="llm_8b",
         )

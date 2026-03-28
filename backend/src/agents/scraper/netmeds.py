@@ -12,7 +12,8 @@ class NetmedsScraper(PharmacyScraper):
 
     async def search_medicine(self, page, medicine_name: str) -> list[ScrapedPrice]:
         results = []
-        search_url = f"{self.BASE_URL}/catalogsearch/result/{medicine_name}/all"
+        safe_name = self._safe_medicine_name(medicine_name)
+        search_url = f"{self.BASE_URL}/catalogsearch/result/{safe_name}/all"
 
         await page.goto(search_url, wait_until="domcontentloaded", timeout=20000)
         await page.wait_for_timeout(3000)

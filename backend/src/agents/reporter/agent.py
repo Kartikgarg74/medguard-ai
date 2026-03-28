@@ -246,7 +246,10 @@ class ReporterAgent(BaseAgent):
                 prompt=prompt,
                 system_prompt=REPORT_NARRATIVE_SYSTEM,
             )
-            return result
+            # Sanitize LLM output — strip any HTML tags to prevent XSS
+            import html as html_lib
+
+            return html_lib.escape(result) if result else ""
         except Exception as e:
             logger.warning(f"LLM narrative generation failed: {e}")
             return ""

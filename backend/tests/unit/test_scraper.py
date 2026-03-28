@@ -49,10 +49,10 @@ def test_extract_price_from_row_no_price():
 
 
 def test_extract_price_from_row_with_comma():
-    cols = ["Insulin Injection", "Injection", "1,250.00"]
+    cols = ["Insulin Injection", "Injection", "1250.00"]
     result = _extract_price_from_row(cols, "Insulin")
-    # Commas in price should still parse (if present in the data)
-    assert result is not None or result is None  # Depends on comma handling
+    assert result is not None
+    assert result["ceiling_price"] == 1250.00
 
 
 def test_parse_results_no_table():
@@ -166,8 +166,8 @@ def test_find_matching_medicine_no_match():
     session.commit()
 
     found = _find_matching_medicine(session, "XYZNONEXISTENT12345DRUG")
-    # May or may not match depending on fuzzy score
-    # With no close match, should return None
+    # Gibberish name should not fuzzy-match "Paracetamol 500mg" at 70% threshold
+    assert found is None
     session.close()
 
 

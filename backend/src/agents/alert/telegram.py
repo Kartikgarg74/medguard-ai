@@ -64,16 +64,18 @@ class MedGuardTelegramBot:
         dpco_rule: str,
     ):
         """Send a formatted violation alert to Telegram."""
+        import html
+
         icon = SEVERITY_COLORS.get(severity, "⚪")
 
         message = (
             f"{icon} <b>DPCO Violation Detected</b>\n\n"
-            f"<b>Medicine:</b> {medicine_name}\n"
-            f"<b>Platform:</b> {platform}\n"
+            f"<b>Medicine:</b> {html.escape(medicine_name)}\n"
+            f"<b>Platform:</b> {html.escape(platform)}\n"
             f"<b>Overcharge:</b> Rs {overcharge_amount:.2f} "
             f"({overcharge_pct:.1f}%)\n"
-            f"<b>Severity:</b> {severity.upper()}\n"
-            f"<b>DPCO Rule:</b> {dpco_rule}\n\n"
+            f"<b>Severity:</b> {html.escape(severity.upper())}\n"
+            f"<b>DPCO Rule:</b> {html.escape(dpco_rule)}\n\n"
             f"<i>MedGuard AI — Automated Compliance Monitoring</i>"
         )
 

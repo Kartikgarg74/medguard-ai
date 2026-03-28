@@ -16,8 +16,6 @@ class ApolloPharmacyScraper(PharmacyScraper):
             headless=self.headless,
             args=[
                 "--disable-blink-features=AutomationControlled",
-                "--disable-web-security",
-                "--no-sandbox",
             ],
         )
         context = await browser.new_context(
@@ -41,7 +39,8 @@ class ApolloPharmacyScraper(PharmacyScraper):
 
     async def search_medicine(self, page, medicine_name: str) -> list[ScrapedPrice]:
         results = []
-        search_url = f"{self.BASE_URL}/search-medicines/{medicine_name}"
+        safe_name = self._safe_medicine_name(medicine_name)
+        search_url = f"{self.BASE_URL}/search-medicines/{safe_name}"
 
         try:
             await page.goto(search_url, wait_until="domcontentloaded", timeout=25000)

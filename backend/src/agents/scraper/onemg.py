@@ -14,7 +14,8 @@ class OneMgScraper(PharmacyScraper):
 
     async def search_medicine(self, page, medicine_name: str) -> list[ScrapedPrice]:
         results = []
-        search_url = f"{self.BASE_URL}/search/all?name={medicine_name}"
+        safe_name = self._safe_medicine_name(medicine_name)
+        search_url = f"{self.BASE_URL}/search/all?name={safe_name}"
 
         await page.goto(search_url, wait_until="domcontentloaded", timeout=20000)
         await page.wait_for_timeout(4000)
@@ -52,7 +53,7 @@ class OneMgScraper(PharmacyScraper):
         if not text or "₹" not in text:
             return None
 
-        lines = [l.strip() for l in text.split("\n") if l.strip()]
+        lines = [ln.strip() for ln in text.split("\n") if ln.strip()]
 
         # Extract product name (usually first non-badge line)
         name = ""
@@ -67,7 +68,8 @@ class OneMgScraper(PharmacyScraper):
         # Extract pack size (e.g., "strip of 15 tablets")
         pack_size = ""
         for line in lines:
-            if any(w in line.lower() for w in ["strip", "tablet", "capsule", "bottle", "ml", "vial"]):
+            pack_words = ["strip", "tablet", "capsule", "bottle", "ml", "vial"]
+            if any(w in line.lower() for w in pack_words):
                 if not line.startswith("₹"):
                     pack_size = line
                     break

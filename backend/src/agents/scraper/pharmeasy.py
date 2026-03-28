@@ -14,15 +14,15 @@ class PharmEasyScraper(PharmacyScraper):
 
     async def search_medicine(self, page, medicine_name: str) -> list[ScrapedPrice]:
         results = []
-        search_url = f"{self.BASE_URL}/search/all?name={medicine_name}"
+        safe_name = self._safe_medicine_name(medicine_name)
+        search_url = f"{self.BASE_URL}/search/all?name={safe_name}"
 
         await page.goto(search_url, wait_until="domcontentloaded", timeout=20000)
         await page.wait_for_timeout(4000)
 
         # PharmEasy uses ProductCard_medicineUnitContainer
         cards = await page.query_selector_all(
-            'div[class*="ProductCard_medicineUnitContainer"], '
-            'div[class*="ProductCard_container"]'
+            'div[class*="ProductCard_medicineUnitContainer"], div[class*="ProductCard_container"]'
         )
 
         if not cards:
@@ -49,7 +49,7 @@ class PharmEasyScraper(PharmacyScraper):
         if not text or "₹" not in text:
             return None
 
-        lines = [l.strip() for l in text.split("\n") if l.strip()]
+        lines = [ln.strip() for ln in text.split("\n") if ln.strip()]
         if len(lines) < 3:
             return None
 
