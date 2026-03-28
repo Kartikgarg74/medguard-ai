@@ -1,5 +1,7 @@
 """PharmEasy medicine price scraper."""
 
+import re
+
 from src.agents.scraper.pharmacy_base import PharmacyScraper, ScrapedPrice
 from src.utils.logger import get_logger
 
@@ -15,17 +17,22 @@ class PharmEasyScraper(PharmacyScraper):
         search_url = f"{self.BASE_URL}/search/all?name={medicine_name}"
 
         await page.goto(search_url, wait_until="domcontentloaded", timeout=20000)
-        await page.wait_for_timeout(3000)
+        await page.wait_for_timeout(4000)
 
-        # PharmEasy product cards
+        # PharmEasy uses ProductCard_medicineUnitContainer
         cards = await page.query_selector_all(
-            "div[class*='ProductCard'], "
-            "div[class*='product-card'], "
-            "div[class*='Search_medicineListing']"
+            'div[class*="ProductCard_medicineUnitContainer"], '
+            'div[class*="ProductCard_container"]'
         )
 
         if not cards:
-            cards = await page.query_selector_all("div[class*='product']")
+            # Fallback: links to product pages with price text
+            all_cards = await page.query_selector_all('div[class*="card"]')
+            cards = []
+            for c in all_cards:
+                text = await c.inner_text()
+                if "₹" in text and len(text) > 20:
+                    cards.append(c)
 
         for card in cards[:10]:
             try:
@@ -38,43 +45,53 @@ class PharmEasyScraper(PharmacyScraper):
         return results
 
     async def _extract_card_data(self, card) -> ScrapedPrice | None:
-        import re
-
-        name_el = await card.query_selector(
-            "h1, h2, h3, [class*='name'], [class*='title'], a[title]"
-        )
-        name = ""
-        if name_el:
-            name = await name_el.inner_text()
-            if not name:
-                name = (await name_el.get_attribute("title")) or ""
-        if not name:
+        text = await card.inner_text()
+        if not text or "₹" not in text:
             return None
 
+        lines = [l.strip() for l in text.split("\n") if l.strip()]
+        if len(lines) < 3:
+            return None
+
+        # PharmEasy format:
+        # Line 0: Product name (e.g., "Dolo 650mg Strip Of 15 Tablets")
+        # Line 1: "By MANUFACTURER"
+        # Line 2: Pack size (e.g., "15 Tablet(s) in Strip")
+        # Then prices: ₹selling, ₹mrp, XX% OFF
+        name = lines[0] if lines else ""
+        if not name or name.startswith("₹"):
+            return None
+
+        manufacturer = ""
+        pack_size = ""
+        for line in lines[1:4]:
+            if line.startswith("By "):
+                manufacturer = line[3:]
+            elif any(w in line.lower() for w in ["tablet", "capsule", "strip", "bottle", "ml"]):
+                pack_size = line
+
+        # Extract prices
+        prices = re.findall(r"₹(\d+\.?\d*)", text)
+        if not prices:
+            return None
+
+        selling = float(prices[0])
+        mrp = float(prices[1]) if len(prices) >= 2 else selling
+
+        if selling > mrp and mrp > 0:
+            mrp, selling = selling, mrp
+        if selling <= 0:
+            return None
+        if mrp <= 0:
+            mrp = selling
+
+        # URL
         link_el = await card.query_selector("a[href]")
         url = ""
         if link_el:
             href = await link_el.get_attribute("href")
             if href:
                 url = href if href.startswith("http") else f"{self.BASE_URL}{href}"
-
-        card_text = await card.inner_text()
-        prices = re.findall(r"₹\s*(\d+\.?\d*)", card_text)
-
-        mrp = float(prices[0]) if len(prices) >= 1 else 0.0
-        selling = float(prices[1]) if len(prices) >= 2 else mrp
-
-        # PharmEasy often shows selling first, MRP second
-        if selling > mrp and mrp > 0:
-            mrp, selling = selling, mrp
-
-        if selling <= 0:
-            return None
-        if mrp <= 0:
-            mrp = selling
-
-        pack_el = await card.query_selector("[class*='pack'], [class*='quantity']")
-        pack_size = (await pack_el.inner_text()) if pack_el else ""
 
         discount = round(((mrp - selling) / mrp * 100), 1) if mrp > selling else 0.0
 
@@ -86,5 +103,6 @@ class PharmEasyScraper(PharmacyScraper):
             discount_pct=discount,
             pack_size=pack_size.strip(),
             product_url=url,
+            manufacturer=manufacturer.strip(),
             price_per_unit=self._calculate_per_unit(selling, pack_size),
         )
