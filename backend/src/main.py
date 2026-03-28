@@ -6,6 +6,12 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from src.api.audit import router as audit_router
+from src.api.dashboard import router as dashboard_router
+from src.api.medicines import router as medicines_router
+from src.api.reports import router as reports_router
+from src.api.scraper_api import router as scraper_router
+from src.api.violations import router as violations_router
 from src.config import get_config
 from src.database.session import init_db
 from src.security.audit_log import log_audit, verify_chain
@@ -55,6 +61,14 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Mount API routers
+app.include_router(medicines_router)
+app.include_router(violations_router)
+app.include_router(dashboard_router)
+app.include_router(reports_router)
+app.include_router(scraper_router)
+app.include_router(audit_router)
 
 
 @app.get("/health")

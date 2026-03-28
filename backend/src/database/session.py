@@ -5,6 +5,7 @@ from pathlib import Path
 
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.pool import StaticPool
 
 from src.database.models import Base
 from src.utils.logger import get_logger
@@ -22,11 +23,17 @@ def get_engine():
         db_path = os.getenv("DATABASE_PATH", "data/medguard.db")
         if db_path == ":memory:":
             url = "sqlite:///:memory:"
+            # StaticPool ensures all connections share the same :memory: DB
+            _engine = create_engine(
+                url,
+                echo=False,
+                connect_args={"check_same_thread": False},
+                poolclass=StaticPool,
+            )
         else:
             Path(db_path).parent.mkdir(parents=True, exist_ok=True)
             url = f"sqlite:///{db_path}"
-
-        _engine = create_engine(url, echo=False, connect_args={"check_same_thread": False})
+            _engine = create_engine(url, echo=False, connect_args={"check_same_thread": False})
 
         # Enable WAL mode for better concurrent read performance
         @event.listens_for(_engine, "connect")
