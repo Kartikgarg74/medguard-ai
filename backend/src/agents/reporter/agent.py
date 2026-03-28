@@ -3,7 +3,7 @@
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import func
+from sqlalchemy import case, func
 
 from src.agents.base import BaseAgent
 from src.agents.reporter.generator import (
@@ -162,7 +162,7 @@ class ReporterAgent(BaseAgent):
                 ComplianceCheck.platform,
                 func.count(ComplianceCheck.id),
                 func.sum(
-                    func.case(
+                    case(
                         (ComplianceCheck.status == "violation", 1),
                         else_=0,
                     )
