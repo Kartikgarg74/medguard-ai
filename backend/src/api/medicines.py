@@ -1,6 +1,6 @@
 """API routes for medicine search and price comparison."""
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, HTTPException, Query
 
 from src.database.models import CeilingPrice, Medicine, RetailPrice
 from src.database.session import get_session
@@ -62,7 +62,7 @@ async def get_medicine(medicine_id: str):
     try:
         med = session.query(Medicine).filter_by(id=medicine_id).first()
         if not med:
-            return {"error": "Medicine not found"}, 404
+            raise HTTPException(status_code=404, detail="Medicine not found")
 
         # Latest ceiling price
         ceiling = (

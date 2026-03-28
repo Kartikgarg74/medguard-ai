@@ -22,6 +22,11 @@ def fresh_db():
     reset_engine()
     os.environ["DATABASE_PATH"] = ":memory:"
     init_db()
+    # Clear verify_chain cache between tests
+    from src.security.audit_log import _chain_cache
+
+    _chain_cache["result"] = None
+    _chain_cache["expires_at"] = 0
     yield
     reset_engine()
 

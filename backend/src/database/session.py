@@ -41,9 +41,13 @@ def get_engine():
             cursor = dbapi_connection.cursor()
             cursor.execute("PRAGMA journal_mode=WAL")
             cursor.execute("PRAGMA foreign_keys=ON")
+            cursor.execute("PRAGMA synchronous=NORMAL")  # Safe with WAL, 2-3x faster
+            cursor.execute("PRAGMA cache_size=-64000")  # 64MB page cache
+            cursor.execute("PRAGMA busy_timeout=5000")  # 5s retry on lock
+            cursor.execute("PRAGMA temp_store=MEMORY")
             cursor.close()
 
-        logger.info(f"Database engine created: {url}")
+        logger.info("Database engine initialized")
     return _engine
 
 

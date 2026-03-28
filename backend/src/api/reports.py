@@ -1,6 +1,6 @@
 """API routes for compliance reports."""
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import HTMLResponse
 
 from src.database.models import Report
@@ -54,7 +54,7 @@ async def get_report(report_id: str):
     try:
         report = session.query(Report).filter_by(id=report_id).first()
         if not report:
-            return {"error": "Report not found"}
+            raise HTTPException(status_code=404, detail="Report not found")
 
         return {
             "id": report.id,

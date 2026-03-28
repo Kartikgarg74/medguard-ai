@@ -3,8 +3,10 @@
 import asyncio
 import os
 import random
+import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
+from urllib.parse import quote
 
 from src.utils.logger import get_logger
 
@@ -137,12 +139,15 @@ class PharmacyScraper(ABC):
         )
         return all_results
 
+    def _safe_medicine_name(self, medicine_name: str) -> str:
+        """URL-encode medicine name, stripping path-unsafe characters."""
+        sanitized = re.sub(r"[^\w\s\-\.\(\)]", "", medicine_name)
+        return quote(sanitized.strip(), safe="")
+
     def _parse_price(self, text: str) -> float:
         """Parse a price string like '₹45.50' or 'MRP ₹ 120.00' into a float."""
         if not text:
             return 0.0
-        import re
-
         cleaned = re.sub(r"[₹,\s]", "", text)
         match = re.search(r"(\d+\.?\d*)", cleaned)
         return float(match.group(1)) if match else 0.0

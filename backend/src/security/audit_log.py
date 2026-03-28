@@ -116,9 +116,13 @@ def log_audit(
         session.close()
 
 
+_chain_cache: dict = {"result": None, "expires_at": 0}
+
+
 def verify_chain() -> dict:
     """
     Verify the integrity of the entire audit log chain.
+    Result is cached for 5 minutes to avoid expensive re-computation on every dashboard load.
 
     Returns:
         {
@@ -128,6 +132,12 @@ def verify_chain() -> dict:
             "error": str | None,
         }
     """
+    import time as _time
+
+    now = _time.time()
+    if _chain_cache["result"] is not None and now < _chain_cache["expires_at"]:
+        return _chain_cache["result"]
+
     session = get_session()
     try:
         entries = session.query(AuditLog).order_by(AuditLog.sequence_num.asc()).all()
@@ -189,12 +199,16 @@ def verify_chain() -> dict:
                         ),
                     }
 
-        return {
+        result = {
             "valid": True,
             "total_entries": len(entries),
             "first_broken_at": None,
             "error": None,
         }
+        # Cache result for 5 minutes
+        _chain_cache["result"] = result
+        _chain_cache["expires_at"] = now + 300
+        return result
 
     finally:
         session.close()
