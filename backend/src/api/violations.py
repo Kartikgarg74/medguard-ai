@@ -1,6 +1,9 @@
 """API routes for compliance violations."""
 
-from fastapi import APIRouter, Query
+from enum import Enum
+from typing import Optional
+
+from fastapi import APIRouter, HTTPException, Query
 from sqlalchemy import func
 
 from src.database.models import ComplianceCheck, Medicine
@@ -8,15 +11,30 @@ from src.database.session import get_session
 
 router = APIRouter(prefix="/api/violations", tags=["violations"])
 
+_VALID_SEVERITIES = {"critical", "high", "medium", "low", ""}
+_VALID_PLATFORMS = {"1mg", "pharmeasy", "netmeds", "apollo", ""}
+
 
 @router.get("")
 async def list_violations(
-    severity: str = Query("", description="Filter by severity: critical/high/medium/low"),
-    platform: str = Query("", description="Filter by platform"),
+    severity: str = Query("", max_length=20, description="Filter by severity: critical/high/medium/low"),
+    platform: str = Query("", max_length=50, description="Filter by platform"),
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
 ):
     """List compliance violations with filters."""
+    # Validate enum-like inputs
+    if severity and severity.lower() not in _VALID_SEVERITIES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid severity. Must be one of: {', '.join(s for s in _VALID_SEVERITIES if s)}",
+        )
+    if platform and platform.lower() not in _VALID_PLATFORMS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid platform. Must be one of: {', '.join(p for p in _VALID_PLATFORMS if p)}",
+        )
+
     session = get_session()
     try:
         query = (
@@ -62,6 +80,9 @@ async def list_violations(
                 for cc, name in results
             ],
         }
+    except Exception as e:
+        session.rollback()
+        raise HTTPException(status_code=500, detail="Database query failed")
     finally:
         session.close()
 
@@ -111,5 +132,8 @@ async def violation_stats():
             "by_severity": by_severity,
             "by_platform": by_platform,
         }
+    except Exception as e:
+        session.rollback()
+        raise HTTPException(status_code=500, detail="Database query failed")
     finally:
         session.close()

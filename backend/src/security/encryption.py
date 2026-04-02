@@ -15,7 +15,12 @@ def _get_key() -> bytes:
     """Derive a Fernet-compatible key from the environment secret."""
     global _ENCRYPTION_KEY
     if _ENCRYPTION_KEY is None:
-        secret = os.getenv("MEDGUARD_ENCRYPTION_KEY", "medguard-default-key")
+        secret = os.getenv("MEDGUARD_ENCRYPTION_KEY")
+        if not secret:
+            raise RuntimeError(
+                "MEDGUARD_ENCRYPTION_KEY environment variable is required. "
+                "Generate one with: python -c \"from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())\""
+            )
         _ENCRYPTION_KEY = base64.urlsafe_b64encode(hashlib.sha256(secret.encode()).digest())
     return _ENCRYPTION_KEY
 

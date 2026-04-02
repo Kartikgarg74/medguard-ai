@@ -10,7 +10,7 @@ router = APIRouter(prefix="/api/medicines", tags=["medicines"])
 
 @router.get("")
 async def list_medicines(
-    search: str = Query("", description="Search by name or salt"),
+    search: str = Query("", max_length=100, description="Search by name or salt"),
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     dpco_only: bool = Query(False, description="Only DPCO-scheduled drugs"),
@@ -51,6 +51,9 @@ async def list_medicines(
                 for m in medicines
             ],
         }
+    except Exception as e:
+        session.rollback()
+        raise HTTPException(status_code=500, detail="Database query failed")
     finally:
         session.close()
 
@@ -112,5 +115,10 @@ async def get_medicine(medicine_id: str):
             else None,
             "price_comparison": price_comparison,
         }
+    except HTTPException:
+        raise
+    except Exception as e:
+        session.rollback()
+        raise HTTPException(status_code=500, detail="Database query failed")
     finally:
         session.close()

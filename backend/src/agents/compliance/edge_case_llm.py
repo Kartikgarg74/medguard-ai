@@ -104,8 +104,46 @@ class EdgeCaseLLM:
                 "needs_human_review": True,
             }
 
+    def _validate_llm_output(self, result: dict) -> dict:
+        """Validate and sanitize raw LLM output before parsing."""
+        if not isinstance(result, dict):
+            logger.warning("LLM returned non-dict: %s", type(result).__name__)
+            return {}
+
+        # Validate verdict is a known string
+        verdict = result.get("verdict", "review_needed")
+        if not isinstance(verdict, str) or verdict.lower().strip() not in {
+            "compliant", "violation", "warning", "review_needed"
+        }:
+            logger.warning("LLM returned invalid verdict: %r, defaulting to review_needed", verdict)
+            result["verdict"] = "review_needed"
+
+        # Validate numeric fields are actually numbers
+        for field in ("overcharge_per_unit", "confidence", "suggested_max_price"):
+            val = result.get(field)
+            if val is not None:
+                try:
+                    result[field] = float(val)
+                except (TypeError, ValueError):
+                    logger.warning("LLM returned non-numeric %s: %r", field, val)
+                    result[field] = 0.0
+
+        # Validate confidence is in [0, 1]
+        conf = result.get("confidence", 0.5)
+        if conf > 1.0 or conf < 0.0:
+            logger.warning("LLM confidence out of range: %s, clamping", conf)
+
+        # Validate reasoning is a string
+        reasoning = result.get("reasoning", "")
+        if not isinstance(reasoning, str):
+            result["reasoning"] = str(reasoning)[:500]
+
+        return result
+
     def _parse_llm_result(self, result: dict) -> ComplianceResult:
         """Parse LLM JSON response into a ComplianceResult."""
+        result = self._validate_llm_output(result)
+
         verdict_str = str(result.get("verdict", "review_needed")).lower().strip()
         verdict_map = {
             "compliant": Verdict.COMPLIANT,

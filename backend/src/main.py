@@ -1,10 +1,13 @@
 """MedGuard AI — FastAPI Application Entry Point."""
 
 import os
+from collections import defaultdict
 from contextlib import asynccontextmanager
+from datetime import datetime, timedelta
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from src.api.audit import router as audit_router
 from src.api.dashboard import router as dashboard_router
@@ -54,13 +57,46 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# CORS — configurable via environment
+_default_origins = "http://localhost:3000,http://127.0.0.1:3000"
+_cors_origins = [
+    o.strip() for o in os.getenv("CORS_ORIGINS", _default_origins).split(",") if o.strip()
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+    allow_origins=_cors_origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST"],
+    allow_headers=["Content-Type", "Authorization"],
 )
+
+# --- Rate limiting middleware ---
+_rate_limit_store: dict[str, list[datetime]] = defaultdict(list)
+_RATE_LIMIT = int(os.getenv("API_RATE_LIMIT", "100"))  # requests per minute
+_RATE_WINDOW = timedelta(minutes=1)
+
+
+@app.middleware("http")
+async def rate_limit_middleware(request: Request, call_next):
+    """Simple IP-based rate limiting."""
+    client_ip = request.client.host if request.client else "unknown"
+    now = datetime.now()
+
+    # Prune old entries
+    _rate_limit_store[client_ip] = [
+        ts for ts in _rate_limit_store[client_ip] if now - ts < _RATE_WINDOW
+    ]
+
+    if len(_rate_limit_store[client_ip]) >= _RATE_LIMIT:
+        return JSONResponse(
+            status_code=429,
+            content={"detail": "Rate limit exceeded. Try again later."},
+        )
+
+    _rate_limit_store[client_ip].append(now)
+    return await call_next(request)
+
 
 # Mount API routers
 app.include_router(medicines_router)

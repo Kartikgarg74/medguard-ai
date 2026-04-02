@@ -1,6 +1,6 @@
 """API routes for audit log access and chain verification."""
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, HTTPException, Query
 
 from src.database.models import AuditLog
 from src.database.session import get_session
@@ -53,6 +53,9 @@ async def get_audit_log(
                 for e in entries
             ],
         }
+    except Exception:
+        session.rollback()
+        raise HTTPException(status_code=500, detail='Database query failed')
     finally:
         session.close()
 

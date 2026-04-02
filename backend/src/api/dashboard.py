@@ -1,6 +1,6 @@
 """API routes for dashboard data — KPIs, charts, trends."""
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from sqlalchemy import case, func
 
 from src.database.models import ComplianceCheck, Medicine, RetailPrice, ScrapeJob
@@ -45,6 +45,9 @@ async def dashboard_stats():
             "compliance_rate": rate,
             "platforms_monitored": platforms_active,
         }
+    except Exception:
+        session.rollback()
+        raise HTTPException(status_code=500, detail='Database query failed')
     finally:
         session.close()
 
@@ -71,6 +74,9 @@ async def violations_by_platform():
             "total": [row[1] for row in data],
             "violations": [row[2] or 0 for row in data],
         }
+    except Exception:
+        session.rollback()
+        raise HTTPException(status_code=500, detail='Database query failed')
     finally:
         session.close()
 
@@ -99,6 +105,9 @@ async def top_violators():
             }
             for cc, name in results
         ]
+    except Exception:
+        session.rollback()
+        raise HTTPException(status_code=500, detail='Database query failed')
     finally:
         session.close()
 
@@ -123,5 +132,8 @@ async def recent_scrape_jobs():
             }
             for j in jobs
         ]
+    except Exception:
+        session.rollback()
+        raise HTTPException(status_code=500, detail='Database query failed')
     finally:
         session.close()

@@ -21,6 +21,11 @@ _INJECTION_PATTERNS = [
     r"mark\s+as\s+compliant",
     r"change\s+verdict\s+to",
     r"set\s+overcharge\s+to\s+0",
+    # Unicode obfuscation patterns
+    r"[\u200b-\u200d\ufeff]",        # Zero-width characters
+    r"[\u202a-\u202e]",              # Bidirectional override chars
+    r"\\u[0-9a-fA-F]{4}",           # Unicode escape sequences in text
+    r"[\u2066-\u2069]",             # Bidi isolate characters
 ]
 
 _COMPILED = [re.compile(p, re.IGNORECASE) for p in _INJECTION_PATTERNS]
@@ -41,6 +46,7 @@ def sanitize_input(text: str, max_length: int = 5000) -> str:
         return ""
     text = text[:max_length]
     text = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f]", "", text)  # Control chars
+    text = re.sub(r"[\u200b-\u200d\ufeff\u202a-\u202e\u2066-\u2069]", "", text)  # Hidden Unicode
 
     if detect_prompt_injection(text):
         raise ValueError("Input rejected: suspected prompt injection")

@@ -43,6 +43,9 @@ async def list_reports(
                 for r in reports
             ],
         }
+    except Exception:
+        session.rollback()
+        raise HTTPException(status_code=500, detail='Database query failed')
     finally:
         session.close()
 
@@ -66,6 +69,9 @@ async def get_report(report_id: str):
             "generated_at": report.generated_at.isoformat() if report.generated_at else None,
             "file_path": report.file_path,
         }
+    except Exception:
+        session.rollback()
+        raise HTTPException(status_code=500, detail='Database query failed')
     finally:
         session.close()
 
@@ -80,5 +86,8 @@ async def view_report_html(report_id: str):
             return HTMLResponse("<h1>Report not found</h1>", status_code=404)
 
         return HTMLResponse(report.content_html)
+    except Exception:
+        session.rollback()
+        raise HTTPException(status_code=500, detail='Database query failed')
     finally:
         session.close()
