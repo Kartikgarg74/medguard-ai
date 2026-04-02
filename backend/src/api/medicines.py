@@ -51,7 +51,7 @@ async def list_medicines(
                 for m in medicines
             ],
         }
-    except Exception as e:
+    except Exception:
         session.rollback()
         raise HTTPException(status_code=500, detail="Database query failed")
     finally:
@@ -117,7 +117,7 @@ async def get_medicine(medicine_id: str):
         }
     except HTTPException:
         raise
-    except Exception as e:
+    except Exception:
         session.rollback()
         raise HTTPException(status_code=500, detail="Database query failed")
     finally:

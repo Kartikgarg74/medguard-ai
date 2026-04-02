@@ -19,7 +19,9 @@ def _get_key() -> bytes:
         if not secret:
             raise RuntimeError(
                 "MEDGUARD_ENCRYPTION_KEY environment variable is required. "
-                "Generate one with: python -c \"from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())\""
+                "Generate with: python -c "
+                "\"from cryptography.fernet import Fernet; "
+                "print(Fernet.generate_key().decode())\""
             )
         _ENCRYPTION_KEY = base64.urlsafe_b64encode(hashlib.sha256(secret.encode()).digest())
     return _ENCRYPTION_KEY

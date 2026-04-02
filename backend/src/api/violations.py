@@ -1,8 +1,5 @@
 """API routes for compliance violations."""
 
-from enum import Enum
-from typing import Optional
-
 from fastapi import APIRouter, HTTPException, Query
 from sqlalchemy import func
 
@@ -17,8 +14,12 @@ _VALID_PLATFORMS = {"1mg", "pharmeasy", "netmeds", "apollo", ""}
 
 @router.get("")
 async def list_violations(
-    severity: str = Query("", max_length=20, description="Filter by severity: critical/high/medium/low"),
-    platform: str = Query("", max_length=50, description="Filter by platform"),
+    severity: str = Query(
+        "", max_length=20, description="Filter: critical/high/medium/low"
+    ),
+    platform: str = Query(
+        "", max_length=50, description="Filter by platform"
+    ),
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
 ):
@@ -27,12 +28,12 @@ async def list_violations(
     if severity and severity.lower() not in _VALID_SEVERITIES:
         raise HTTPException(
             status_code=400,
-            detail=f"Invalid severity. Must be one of: {', '.join(s for s in _VALID_SEVERITIES if s)}",
+            detail="Invalid severity. Use: critical, high, medium, low",
         )
     if platform and platform.lower() not in _VALID_PLATFORMS:
         raise HTTPException(
             status_code=400,
-            detail=f"Invalid platform. Must be one of: {', '.join(p for p in _VALID_PLATFORMS if p)}",
+            detail="Invalid platform. Use: 1mg, pharmeasy, netmeds, apollo",
         )
 
     session = get_session()
@@ -80,7 +81,7 @@ async def list_violations(
                 for cc, name in results
             ],
         }
-    except Exception as e:
+    except Exception:
         session.rollback()
         raise HTTPException(status_code=500, detail="Database query failed")
     finally:
@@ -132,7 +133,7 @@ async def violation_stats():
             "by_severity": by_severity,
             "by_platform": by_platform,
         }
-    except Exception as e:
+    except Exception:
         session.rollback()
         raise HTTPException(status_code=500, detail="Database query failed")
     finally:
